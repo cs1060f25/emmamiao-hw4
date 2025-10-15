@@ -13,3 +13,8 @@ data.db-*
 .DS_Store
 venv/
 venv/
+
+*.db
+*.db-wal
+*.db-shm
+.DS_Store
