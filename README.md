@@ -138,7 +138,3 @@ DB_PATH=/opt/render/project/src/data.db
 - County Health Rankings & Roadmaps Analytic Data (Feb 2025)  
 - Flask Docs: https://flask.palletsprojects.com  
 - SQLite Docs: https://docs.python.org/3/library/sqlite3.html  
-
----
-
-Emma Miao | Harvard
