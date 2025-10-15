@@ -22,7 +22,7 @@ ALLOWED_MEASURES = {
 ZIP_RE = re.compile(r"^\d{5}$")
 
 # Where the DB lives (overrideable via env for deployment)
-DB_PATH = os.environ.get("DB_PATH", os.path.join(os.path.dirname(__file__), "..", "data.db"))
+DB_PATH = os.environ.get("DB_PATH", os.path.join(os.path.dirname(__file__), "data.db"))
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
