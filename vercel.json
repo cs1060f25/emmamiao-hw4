@@ -1,0 +1,4 @@
+{
+  "builds": [{ "src": "county-api/api.py", "use": "@vercel/python" }],
+  "routes": [{ "src": "/(.*)", "dest": "county-api/api.py" }]
+}
