@@ -6,8 +6,7 @@ import sqlite3
 import re
 import os
 
-# import your existing helper
-from csv_to_sqlite import load_csv
+# csv_to_sqlite import removed - using pre-built data.db
 
 app = FastAPI()
 
@@ -45,15 +44,11 @@ ZIP_RE = re.compile(r"^\d{5}$")
 
 def ensure_db_exists():
     """
-    Lazily (re)build data.db if it does not exist yet.
-    Uses your csv_to_sqlite.load_csv(), which the autograder already verified.
+    Check that pre-built data.db exists.
+    On Vercel, we use a pre-built database since the filesystem is read-only.
     """
-    if os.path.exists(DB_PATH):
-        return
-
-    # build tables from CSVs
-    load_csv(DB_PATH, ZIP_CSV)
-    load_csv(DB_PATH, CHR_CSV)
+    if not os.path.exists(DB_PATH):
+        raise RuntimeError(f"data.db not found at {DB_PATH}")
 
 
 def query_db(zip_code: str, measure_name: str):
