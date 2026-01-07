@@ -3,26 +3,19 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 import sqlite3
+import csv
 import re
 import os
-
-# csv_to_sqlite import removed - using pre-built data.db
 
 app = FastAPI()
 
 # Paths
 ROOT_DIR = os.path.dirname(__file__)
-DB_PATH = os.path.join(ROOT_DIR, "data.db")
 ZIP_CSV = os.path.join(ROOT_DIR, "zip_county.csv")
 CHR_CSV = os.path.join(ROOT_DIR, "county_health_rankings.csv")
 
-# For deployment, also check parent directory if files not found
-if not os.path.exists(ZIP_CSV):
-    ZIP_CSV = os.path.join(os.path.dirname(ROOT_DIR), "county-api", "zip_county.csv")
-if not os.path.exists(CHR_CSV):
-    CHR_CSV = os.path.join(os.path.dirname(ROOT_DIR), "county-api", "county_health_rankings.csv")
-if not os.path.exists(DB_PATH):
-    DB_PATH = os.path.join(os.path.dirname(ROOT_DIR), "data.db")
+# Global in-memory database connection
+_db_conn = None
 
 VALID_MEASURES = {
     "Violent crime rate",
@@ -42,20 +35,44 @@ VALID_MEASURES = {
 ZIP_RE = re.compile(r"^\d{5}$")
 
 
-def ensure_db_exists():
-    """
-    Check that pre-built data.db exists.
-    On Vercel, we use a pre-built database since the filesystem is read-only.
-    """
-    if not os.path.exists(DB_PATH):
-        raise RuntimeError(f"data.db not found at {DB_PATH}")
+def load_csv_to_db(conn, csvfile):
+    """Load a CSV file into the in-memory database."""
+    table = os.path.splitext(os.path.basename(csvfile))[0]
+    cur = conn.cursor()
+    
+    with open(csvfile, newline='', encoding='utf-8') as f:
+        reader = csv.reader(f)
+        header = next(reader)
+        
+        cols_def = ", ".join(f"{col} TEXT" for col in header)
+        cur.execute(f"CREATE TABLE IF NOT EXISTS {table} ({cols_def});")
+        
+        placeholders = ", ".join(["?"] * len(header))
+        insert_sql = f"INSERT INTO {table} VALUES ({placeholders});"
+        
+        batch = []
+        for row in reader:
+            if len(row) == len(header):
+                batch.append(row)
+        
+        if batch:
+            cur.executemany(insert_sql, batch)
+    
+    conn.commit()
+
+
+def get_db():
+    """Get or create the in-memory database connection."""
+    global _db_conn
+    if _db_conn is None:
+        _db_conn = sqlite3.connect(":memory:", check_same_thread=False)
+        load_csv_to_db(_db_conn, ZIP_CSV)
+        load_csv_to_db(_db_conn, CHR_CSV)
+    return _db_conn
 
 
 def query_db(zip_code: str, measure_name: str):
-    # make sure DB + tables exist
-    ensure_db_exists()
-
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     cur = conn.cursor()
 
     # Join on county + state_abbreviation with lowercase column names
@@ -84,7 +101,6 @@ def query_db(zip_code: str, measure_name: str):
     """
     cur.execute(sql, (measure_name, zip_code, zip_code))
     rows = cur.fetchall()
-    conn.close()
     
     # Convert to list of dictionaries with lowercase keys
     columns = ['state', 'county', 'state_code', 'county_code', 'year_span', 
